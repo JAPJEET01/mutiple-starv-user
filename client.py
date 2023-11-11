@@ -2,72 +2,74 @@ import socket
 import pyaudio
 import threading
 
-# Server configuration
-host = 'server_ip'  # Replace with the IP address of the server
-port = 12345
+# Function to receive audio from a specified socket
+def receive_audio(sock, stream):
+    while True:
+        try:
+            data = sock.recv(1024)
+            stream.write(data)
+        except:
+            break
 
-# PyAudio configuration
-chunk = 1024
-format = pyaudio.paInt16
-channels = 1
-rate = 44100
+# Function to create a server socket
+def create_server_socket(host, port):
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((host, port))
+    server_socket.listen(4)
+    return server_socket
 
-# Create a socket
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect((host, port))
-
-# Initialize PyAudio
+# PyAudio setup
 p = pyaudio.PyAudio()
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+RATE = 44100
+CHUNK = 1024
 
-# Stream for sending audio to the server
-output_stream = p.open(format=format, channels=channels, rate=rate, output=True, frames_per_buffer=chunk)
+# Use the local IP address of the receiver machine on the WiFi network
+host = '192.168.41.137'  # Change this to the actual local IP address of the receiver machine
+port1, port2, port3, port4 = 5000, 5001, 5002, 5003
 
-# Stream for receiving audio from the server
-input_stream = p.open(format=format, channels=channels, rate=rate, input=True, frames_per_buffer=chunk)
+server_socket1 = create_server_socket(host, port1)
+server_socket2 = create_server_socket(host, port2)
+server_socket3 = create_server_socket(host, port3)
+server_socket4 = create_server_socket(host, port4)
 
-def receive_audio():
-    try:
-        while True:
-            # Receive audio data from the server
-            data = client_socket.recv(chunk)
-            
-            # Play the received audio data
-            output_stream.write(data)
-    except Exception as e:
-        print(f"Error in receive_audio: {e}")
-    finally:
-        # Clean up
-        output_stream.stop_stream()
-        output_stream.close()
-        p.terminate()
+# Accept connections from senders
+client_socket1, _ = server_socket1.accept()
+client_socket2, _ = server_socket2.accept()
+client_socket3, _ = server_socket3.accept()
+client_socket4, _ = server_socket4.accept()
 
-def send_audio():
-    try:
-        while True:
-            # Record audio data from the microphone
-            data = input_stream.read(chunk)
-            
-            # Send the recorded audio data to the server
-            client_socket.sendall(data)
-    except Exception as e:
-        print(f"Error in send_audio: {e}")
-    finally:
-        # Clean up
-        input_stream.stop_stream()
-        input_stream.close()
-        p.terminate()
+# Open streams for each incoming audio
+stream1 = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, output=True, input=True, frames_per_buffer=CHUNK)
+stream2 = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, output=True, input=True, frames_per_buffer=CHUNK)
+stream3 = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, output=True, input=True, frames_per_buffer=CHUNK)
+stream4 = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, output=True, input=True, frames_per_buffer=CHUNK)
 
-# Create threads for receiving and sending audio
-receive_thread = threading.Thread(target=receive_audio)
-send_thread = threading.Thread(target=send_audio)
+# Start threads for sending and receiving audio for each user
+threading.Thread(target=receive_audio, args=(client_socket1, stream1)).start()
+threading.Thread(target=receive_audio, args=(client_socket2, stream2)).start()
+threading.Thread(target=receive_audio, args=(client_socket3, stream3)).start()
+threading.Thread(target=receive_audio, args=(client_socket4, stream4)).start()
 
-# Start the threads
-receive_thread.start()
-send_thread.start()
+# Wait for threads to finish (you can implement a more sophisticated termination mechanism)
+threading.Event().wait()
 
-# Wait for the threads to finish
-receive_thread.join()
-send_thread.join()
-
-# Close the client socket
-client_socket.close()
+# Close sockets and streams on program termination
+server_socket1.close()
+server_socket2.close()
+server_socket3.close()
+server_socket4.close()
+client_socket1.close()
+client_socket2.close()
+client_socket3.close()
+client_socket4.close()
+stream1.stop_stream()
+stream1.close()
+stream2.stop_stream()
+stream2.close()
+stream3.stop_stream()
+stream3.close()
+stream4.stop_stream()
+stream4.close()
+p.terminate()
